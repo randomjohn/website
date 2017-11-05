@@ -6,7 +6,7 @@ categories:
   - Greenville
 tags:
   - flights
-draft: yes
+draft: no
 ---
 
 ```{r setup}
