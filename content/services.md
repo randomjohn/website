@@ -11,11 +11,11 @@ Exploratory data analysis is the art and science of discovering relationships in
 
 # Rigorous predictive modeling
 
-A rigorous predictive modeling approach can illuminate the power &emdash; and the limitations &emdata; of your data in decision making. Inform the optimal decision while guarding against overconfidence and bias.
+A rigorous predictive modeling approach can illuminate the power -- and the limitations -- of your data in decision making. Inform the optimal decision while guarding against overconfidence and bias.
 
 # Reproducible analysis
 
-Any analysis is ineffective if it isn&rsquo;t documented or reproducible. Document the reasons for each decision, no matter how small, to be able to reproduce every analysis and understand every decision even years later. This promotes reproducibility of code and thus the ability to improve future decisions. Modern tools encourage the intermingling of documentation and code so that reasoning for every decision is immediately available.
+Any analysis is ineffective if it isn't documented or reproducible. Document the reasons for each decision, no matter how small, to be able to reproduce every analysis and understand every decision even years later. This promotes reproducibility of code and thus the ability to improve future decisions. Modern tools encourage the intermingling of documentation and code so that reasoning for every decision is immediately available.
 
 # Effective communication
 
