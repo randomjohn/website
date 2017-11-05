@@ -27,6 +27,6 @@ The [Upstate Data Science and Analytics group](https://www.meetup.com/Greenville
 
 To use RStudio to blog, look [at the blogdown documentation](https://bookdown.org/yihui/blogdown/) by Yuhui Xie.
 
-This blog is based on the **HPSTR** theme, ported to [Hugo](https://gohugo.io) by [Michael Rose](http://github.com/mmistakes).
+This blog is based on the **lithium** theme, ported to [Hugo](https://gohugo.io) by [Yuhui Xie](http://github.com/yuhui).
 
 
