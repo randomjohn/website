@@ -10,23 +10,29 @@ ignoreFiles = ["\\.Rmd$", "\\.Rmarkdown$", "_files$", "_cache$"]
     post = "/:year/:month/:day/:slug/"
 
 [[menu.main]]
-    name = "About"
-    url = "/about/"
+    name = "Blog"
+    url = "/"
+    weight = 1
 [[menu.main]]
-    name = "Consulting"
-    url = "/content/services/"
+    name = "About RJS Data Science"
+    url = "/about/"
+    weight = 2
 [[menu.main]]
     name = "Blogroll"
     url = "/content/blogroll/"
+    weight = 4
 [[menu.main]]
     name = "GitHub"
     url = "https://github.com/randomjohn"
+    weight = 5
 [[menu.main]]
     name = "Twitter"
     url = "https://twitter.com/rjsdatascience"
+    weight = 6
 
 [params]
-    description = "Statistics and data science professional with 15+ years experience"
+    description = "RJS Data Science -- statistics and data science professional with 15+ years experience"
+    subtitle = "RJS Data Science"
 
     # options for highlight.js (version, additional languages, and theme)
     highlightjsVersion = "9.11.0"

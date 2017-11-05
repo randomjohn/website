@@ -10,15 +10,27 @@ weight: -1
 
 I'm a statistician living in the Upstate SC area (Greenville/Spartanburg) with an interest in Bayesian methodology, machine learning, and open data. For over 15 years, I have designed and analyzed clinical trials, with an emphasis in oncology and neurology. I consult on data science projects using civic and open data. Finally, I participate in the Upstate Data Science and Analytics meetup.
 
-# Description
+# Services
 
-I explore the acquisition, preparation, and analysis of data from public sources, especially data related to Greenville, South Carolina and the Upstate region. Hopefully this will inspire others to perform similar analyses and extend those analyses for Greenville and beyond.
+## Exploratory data analysis
 
-The [Upstate Data Science and Analytics group](https://www.meetup.com/Greenville-Data-Science-Analytics-Meetup/) meets (mostly) monthly.
+Exploratory data analysis is the art and science of discovering relationships in data. It employs techniques from data visualization, description, transformation, and modeling to generate questions and hypotheses about the processes underlying your data. Effective data visualization can show you relationships among several variables, and effective modeling can quantify those relationships.
+
+## Rigorous predictive modeling
+
+A rigorous predictive modeling approach can illuminate the power -- and the limitations -- of your data in decision making. Inform the optimal decision while guarding against overconfidence and bias.
+
+## Reproducible analysis
+
+Any analysis is ineffective if it isn't documented or reproducible. Document the reasons for each decision, no matter how small, to be able to reproduce every analysis and understand every decision even years later. This promotes reproducibility of code and thus the ability to improve future decisions. Modern tools encourage the intermingling of documentation and code so that reasoning for every decision is immediately available.
+
+## Effective communication
+
+When you have made your predictions and your decisions, chances are you have to justify your decisions to other stakeholders. Any good analytics workflow will account for the need to effectively communicate results either as a report or a presentation. Modern tools will even adjust reports and presentations as new data comes in.
 
 # Contact me
 
-[john@rjsdatascience.com](mailto:john@rjsdatascience.com)
+Please contact me via email at [john@rjsdatascience.com](mailto:john@rjsdatascience.com).
 
 ---
 
