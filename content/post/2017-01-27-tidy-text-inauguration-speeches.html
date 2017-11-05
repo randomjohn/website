@@ -1,0 +1,389 @@
+---
+title: Inauguration speeches
+author: John Johnson
+date: '2017-08-13'
+categories:
+  - National
+tags:
+  - R
+  - text_mining
+slug: content/post/2017-01-27-tidy-text-inauguration-speeches
+---
+
+
+
+<div id="acquiring-inauguration-speeches" class="section level2">
+<h2>Acquiring inauguration speeches</h2>
+<p>Though not about Greenville especially, it might be interesting to quantitatively analyze inauguration speeches. This analysis will be done using two paradigms: the <code>tm</code> package and the <code>tidytext</code> package. We will read the speeches in such a way that we use the <code>tidytext</code> package; later on we will use some tools from that package to make analyses traditionally done by <code>tm</code>.</p>
+<p>I looked around for inauguration speeches, and finally found them at <code>www.bartelby.com</code>. They are in a format more for human consumption, but with the use of the <code>rvest</code> (harvest?) package, we can read them in relatively easily. However, we need to do a mapping from speech IDs to speakers (newly inaugurated presidents), which is a little ugly and tedious.</p>
+<pre class="r"><code>library(rvest)
+library(magrittr)
+library(dplyr)
+library(readr)
+library(tidytext)
+library(tm)
+library(ggplot2)
+ 
+# download and format data ------------------------------------------------
+ 
+ 
+fmt_string &lt;- &quot;http://www.bartleby.com/124/pres%d.html&quot;
+ 
+speakers &lt;- read.csv(textConnection(&quot;Number,Speaker
+13,George Washington
+14,George Washington
+15,John Adams
+16,Thomas Jefferson
+17,Thomas Jefferson
+18,James Madison
+19,James Madison
+20,James Monroe
+21,James Monroe
+22,John Quincy Adams
+23,Andrew Jackson
+24,Andrew Jackson
+25,Martin Van Buren
+26,William Henry Harrison
+27,James Knox Polk
+28,Zachary Taylor
+29,Franklin Pierce
+30,James Buchanon
+31,Abraham Lincoln
+32,Abraham Lincoln
+33,Ulysses S. Grant
+34,Ulysses S. Grant
+35,Rutherford B. Hayes
+36,James A. Garfield
+37,Grover Cleveland
+38,Benjamin Harrison
+39,Grover Cleveland
+40,William McKinley
+41,William McKinley
+42,Theodore Roosevelt
+43,William Howard Taft
+44,Woodrow Wilson
+45,Woodrow Wilson
+46,Warren G. Harding
+47,Calvin Coolidge
+48,Herbert Hoover
+49,Franklin D. Roosevelt
+50,Franklin D. Roosevelt
+51,Franklin D. Roosevelt
+52,Franklin D. Roosevelt
+53,Harry S. Truman
+54,Dwight D. Eisenhower
+55,Dwight D. Eisenhower
+56,John F. Kennedy
+57,Lyndon Baines Johnson
+58,Richard Milhaus Nixon
+59,Richard Milhaus Nixon
+60,Jimmy Carter
+61,Ronald Reagan
+62,Ronald Reagan
+63,George H. W. Bush
+64,Bill Clinton
+65,Bill Clinton
+66,George W. Bush
+67,George W. Bush
+68,Barack Obama
+69,Barack Obama
+70,Donald Trump&quot;))
+ 
+# read the speeches into a list of data.frames, append ID number in a new column                     
+speeches &lt;- list()
+ 
+for (id in 13:70) {
+  speech_html &lt;- read_html(sprintf(fmt_string,id))
+  
+  speech_lines &lt;- speech_html %&gt;% 
+    html_nodes(&quot;table&quot;) %&gt;% 
+    extract(9) %&gt;% 
+    html_table() %&gt;% 
+    as.data.frame() %&gt;% 
+    rename(text=X1,line=X2) %&gt;% 
+    mutate(id=rep(id,nrow(.)))
+  
+  speeches[[id-12]] &lt;- speech_lines
+}
+ 
+# concatenate all the speeches and add speaker names
+speech_df &lt;- do.call(rbind,speeches)
+ 
+speech_df &lt;- speech_df %&gt;% left_join(speakers,by=c(&quot;id&quot;=&quot;Number&quot;))</code></pre>
+</div>
+<div id="first-analysis" class="section level2">
+<h2>First analysis</h2>
+<p>Now that we have the speeches as a one-record-per-speech data frame, we can start to analyze them. This post will consist really of a basic analysis based on the “bag of words” paradigm. There are more sophisticated analyses that can be done, but even the basics can be interesting. First, we do a bit of data munging to create a one-record-per-word-per-speech dataset. The strategy is based on the <a href="http://juliasilge.com/blog/RStudio-Conf/">tidy text paradigm described here</a>. Once we have the dataset in the format we want, we can easily eliminate “uninteresting” words by using a filtering <code>anti-join</code> from the <code>dplyr</code> package. (Note: there may be analyses where you would want to keep these so-called “stop-words”, e.g. “a” and “the”, but for purposes here we just get rid of them.)</p>
+<pre class="r"><code>speech_words &lt;- speech_df %&gt;% 
+  mutate(id=factor(id)) %&gt;% 
+  unnest_tokens(word,text) %&gt;%
+  count(id, word, sort = TRUE) %&gt;%
+  ungroup()
+total_words &lt;- speech_words %&gt;% 
+  group_by(id) %&gt;% 
+  summarize(total = sum(n))
+ 
+speech_words &lt;- left_join(speech_words, total_words) %&gt;% 
+  anti_join(stop_words %&gt;% filter(lexicon==&quot;onix&quot;) %&gt;% 
+              select(-lexicon) %&gt;% 
+              union(data.frame(word=c(&quot;s&quot;,&quot;so&quot;))),by=&quot;word&quot;)</code></pre>
+<pre><code>## Joining, by = &quot;id&quot;</code></pre>
+<pre><code>## Warning: Column `word` joining character vector and factor, coercing into
+## character vector</code></pre>
+<pre class="r"><code>speech_words %&gt;% head()</code></pre>
+<pre><code>## # A tibble: 6 x 4
+##       id         word     n total
+##   &lt;fctr&gt;        &lt;chr&gt; &lt;int&gt; &lt;int&gt;
+## 1     26        power    47  8463
+## 2     27   government    47  4813
+## 3     26       people    38  8463
+## 4     26 constitution    36  8463
+## 5     26   government    36  8463
+## 6     48   government    33  3766</code></pre>
+<p>We can now plot the most common words in inauguration speech, just to dig into what that dataset looks like. Note that I polished this graph up a bit (changing axis labels to something pretty, rotating x-axis labels, etc.), but the first past through this graph was a bit ugly. To me, the two most important elements of this graph are selecting the 20 most common words and re-ordering from most to fewest.</p>
+<pre class="r"><code># find frequencies of words used in speeches
+# we do this so we can reorder in ggplot2 (there may be a way to do directly in ggplot2 without this step)
+speech_freq &lt;- speech_words %&gt;% 
+  group_by(word) %&gt;% 
+  summarize(frequency=n()) %&gt;% 
+  arrange(desc(frequency))
+ 
+# plot frequencies of words over all speeches, top 20 only, in order of frequency most to fewest
+ggplot(speech_freq %&gt;% ungroup() %&gt;% slice(1:20), aes(reorder(word,desc(frequency)))) +
+  geom_bar(aes(y=frequency),stat=&quot;identity&quot;,alpha = 0.8, show.legend = FALSE) +
+  labs(title = &quot;Term Frequency Distribution in Presidential Inaugural Addresses&quot;) +
+    xlab(&quot;Word&quot;) + ylab(&quot;Frequency&quot;) + theme(axis.text.x = element_text(angle = 45, hjust = 1))</code></pre>
+<p><img src="/post/2017-01-27-tidy-text-inauguration-speeches_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
+</div>
+<div id="what-makes-speeches-unique" class="section level2">
+<h2>What makes speeches unique</h2>
+<p>At least using the bag-of-words paradigm, the term-frequency * inverse-document-frequency (TF-IDF) analysis is used to determine what words set speeches (or other documents) apart from each other. A word in a given document has a high TF-IDF score if it appears very often in that speech, but rarely in others. If a word appears less frequently in a speech, or appears more often in other speeches, that will lower the TF-IDF score. Thus, a word with a high TF-IDF score can be considered a signature word for a speech Using this strategy for all interesting words, we can compare styles of speeches, and even cluster them into groups.</p>
+<p>First, we use the <code>bind_tf_idf</code> function from <code>tidytext</code> to calculate the TF-IDF score. Then we can find the words with the highest TF-IDF score - the words that do the most to distinguish one inauguration speech from another.</p>
+<pre class="r"><code>speech_words2 &lt;- speech_words %&gt;%
+  bind_tf_idf(word, id, n)
+speech_words2</code></pre>
+<pre><code>## # A tibble: 34,734 x 7
+##        id         word     n total          tf        idf       tf_idf
+##    &lt;fctr&gt;        &lt;chr&gt; &lt;int&gt; &lt;int&gt;       &lt;dbl&gt;      &lt;dbl&gt;        &lt;dbl&gt;
+##  1     26        power    47  8463 0.015254787 0.21029541 0.0032080118
+##  2     27   government    47  4813 0.024697846 0.09015110 0.0022265379
+##  3     26       people    38  8463 0.012333658 0.03509132 0.0004328043
+##  4     26 constitution    36  8463 0.011684518 0.44952510 0.0052524841
+##  5     26   government    36  8463 0.011684518 0.09015110 0.0010533721
+##  6     48   government    33  3766 0.021512386 0.09015110 0.0019393652
+##  7     27        union    32  4813 0.016815554 0.62645581 0.0105342017
+##  8     38       people    29  4397 0.016782407 0.03509132 0.0005889168
+##  9     26     citizens    27  8463 0.008763389 0.09015110 0.0007900291
+## 10     67      freedom    27  2084 0.030927835 0.47692407 0.0147502290
+## # ... with 34,724 more rows</code></pre>
+<pre class="r"><code>speech_words2 %&gt;%
+  select(-total) %&gt;%
+  arrange(desc(tf_idf))</code></pre>
+<pre><code>## # A tibble: 34,734 x 6
+##        id        word     n         tf      idf     tf_idf
+##    &lt;fctr&gt;       &lt;chr&gt; &lt;int&gt;      &lt;dbl&gt;    &lt;dbl&gt;      &lt;dbl&gt;
+##  1     14      arrive     1 0.01851852 4.060443 0.07519339
+##  2     14 upbraidings     1 0.01851852 4.060443 0.07519339
+##  3     14   incurring     1 0.01851852 3.367296 0.06235733
+##  4     14    violated     1 0.01851852 3.367296 0.06235733
+##  5     14   willingly     1 0.01851852 3.367296 0.06235733
+##  6     14 injunctions     1 0.01851852 2.961831 0.05484872
+##  7     14   knowingly     1 0.01851852 2.961831 0.05484872
+##  8     14    previous     1 0.01851852 2.961831 0.05484872
+##  9     14   witnesses     1 0.01851852 2.961831 0.05484872
+## 10     14     besides     1 0.01851852 2.674149 0.04952127
+## # ... with 34,724 more rows</code></pre>
+<pre class="r"><code>plot_inaug &lt;- speech_words2 %&gt;%
+  arrange(desc(tf_idf)) %&gt;%
+  mutate(word = factor(word, levels = rev(unique(word)))) %&gt;% 
+  left_join(speakers %&gt;% mutate(id=factor(Number)),by=&quot;id&quot;)
+ 
+ggplot(plot_inaug %&gt;% filter(tf_idf &gt; 0.025), aes(word, tf_idf, fill = Speaker)) +
+  geom_bar(alpha = 0.8, stat = &quot;identity&quot;) +
+  labs(title = &quot;Highest tf-idf words in Presidential Inauguration Speeches&quot;,
+       x = NULL, y = &quot;tf-idf&quot;) +
+  coord_flip()</code></pre>
+<p><img src="/post/2017-01-27-tidy-text-inauguration-speeches_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
+<p>Then we can do this analysis within each speech to find out what distinguishes them from other speeches. The <code>for</code> loop below can be used to print multiple pages of faceted graphs, good for when you are using RStudio or the R gui to explore.</p>
+<pre class="r"><code>plot_words &lt;- speech_words2 %&gt;% 
+  left_join(speakers %&gt;% mutate(id=factor(Number)),by=&quot;id&quot;) %&gt;% 
+  group_by(Speaker) %&gt;% 
+  top_n(15,tf_idf)
+ 
+ 
+speakers_vec &lt;- unique(plot_words$Speaker) 
+n_panel &lt;- 4
+for (i in 1:floor(length(speakers_vec)/n_panel)) {
+  these_speakers &lt;- speakers_vec[((i-1)*n_panel+1):min(i*n_panel,length(speakers_vec))]
+  this_plot &lt;- ggplot(plot_words %&gt;% filter(Speaker %in% these_speakers), aes(word, tf_idf, fill = Speaker)) +
+    geom_bar(alpha = 0.8, stat = &quot;identity&quot;, show.legend = FALSE) +
+    labs(title = &quot;Highest tf-idf words in Inaugural Speeches&quot;,
+         x = NULL, y = &quot;tf-idf&quot;) +
+    facet_wrap(~Speaker, ncol = 2, scales = &quot;free&quot;) +
+    coord_flip() 
+  print(this_plot)
+}</code></pre>
+<p><img src="/post/2017-01-27-tidy-text-inauguration-speeches_files/figure-html/unnamed-chunk-5-1.png" width="672" /><img src="/post/2017-01-27-tidy-text-inauguration-speeches_files/figure-html/unnamed-chunk-5-2.png" width="672" /><img src="/post/2017-01-27-tidy-text-inauguration-speeches_files/figure-html/unnamed-chunk-5-3.png" width="672" /><img src="/post/2017-01-27-tidy-text-inauguration-speeches_files/figure-html/unnamed-chunk-5-4.png" width="672" /><img src="/post/2017-01-27-tidy-text-inauguration-speeches_files/figure-html/unnamed-chunk-5-5.png" width="672" /><img src="/post/2017-01-27-tidy-text-inauguration-speeches_files/figure-html/unnamed-chunk-5-6.png" width="672" /><img src="/post/2017-01-27-tidy-text-inauguration-speeches_files/figure-html/unnamed-chunk-5-7.png" width="672" /><img src="/post/2017-01-27-tidy-text-inauguration-speeches_files/figure-html/unnamed-chunk-5-8.png" width="672" /><img src="/post/2017-01-27-tidy-text-inauguration-speeches_files/figure-html/unnamed-chunk-5-9.png" width="672" /></p>
+</div>
+<div id="which-speeches-are-most-like-each-other" class="section level2">
+<h2>Which speeches are most like each other?</h2>
+<p>There’s a lot more that can be done here, but we’ll move on to clustering these inauguration speeches. This will require the use of the document-term matrix, which is a matrix that has documents in the rows, words in the columns, and entries that represent the frequency within the row’s document of the column’s term. The <code>tidytext</code> packages uses the <code>cast_dtm</code> function to create the document-term matrix, and the output can then be used by the <code>tm</code> package and other R commands for analysis.</p>
+<pre class="r"><code>plot_words_dtm &lt;- speech_words %&gt;% 
+  left_join(speakers %&gt;% mutate(id=factor(Number)),by=&quot;id&quot;) %&gt;% 
+  cast_dtm(id,word,n)
+ 
+plot_words_dtm &lt;- removeSparseTerms(plot_words_dtm,0.1)
+plot_words_matrix &lt;- as.matrix(plot_words_dtm)</code></pre>
+<p>To show the hierarchical clustering analysis, we can simply compute a distance matrix, which can be fed into <code>hclust</code>:</p>
+<pre class="r"><code>dist_matrix &lt;- dist(scale(plot_words_matrix),method=&quot;euclidean&quot;)
+inaug_clust &lt;- hclust(dist_matrix,method=&quot;ward.D&quot;)
+plot(inaug_clust)</code></pre>
+<p><img src="/post/2017-01-27-tidy-text-inauguration-speeches_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
+<p>It’s pretty interesting that Speech 26 is unlike nearly all the others. This was William Henry Harrison discussing something about the Roman aristocracy, something other presidents have not felt the need to do very much.</p>
+<p>Let’s say we want to break these speeches into a given number of clusters. We can use the k-means approach.</p>
+<pre class="r"><code>inaug_km &lt;- kmeans(plot_words_matrix,centers = 5,nstart = 25)
+ 
+for (i in 1:length(inaug_km$withinss)) { 
+  #For each cluster, this defines the documents in that cluster 
+  inGroup &lt;- which(inaug_km$cluster==i) 
+  within &lt;- plot_words_dtm[inGroup,] 
+  if(length(inGroup)==1) within &lt;- t(as.matrix(within)) 
+  out &lt;- plot_words_dtm[-inGroup,] 
+  words &lt;- apply(within,2,mean) - apply(out,2,mean) #Take the difference in means for each term 
+  print(c(&quot;Cluster&quot;, i), quote=F) 
+  labels &lt;- order(words, decreasing=T)[1:20] #Take the top 20 Labels
+  print(names(words)[labels], quote=F) #From here down just labels 
+  if(i==length(inaug_km$withinss)) { 
+    print(&quot;Cluster Membership&quot;) 
+    print(table(inaug_km$cluster)) 
+    print(&quot;Within cluster sum of squares by cluster&quot;) 
+    print(inaug_km$withinss) 
+  } 
+}</code></pre>
+<pre><code>## [1] Cluster 1      
+##  [1] citizens   country    own        nation     time       government
+##  [7] people     &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;      
+## [13] &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;      
+## [19] &lt;NA&gt;       &lt;NA&gt;      
+## [1] Cluster 2      
+##  [1] government people     citizens   country    own        nation    
+##  [7] time       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;      
+## [13] &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;      
+## [19] &lt;NA&gt;       &lt;NA&gt;      
+## [1] Cluster 3      
+##  [1] government people     country    citizens   time       nation    
+##  [7] own        &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;      
+## [13] &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;      
+## [19] &lt;NA&gt;       &lt;NA&gt;      
+## [1] Cluster 4      
+##  [1] time       citizens   own        country    nation     people    
+##  [7] government &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;      
+## [13] &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;      
+## [19] &lt;NA&gt;       &lt;NA&gt;      
+## [1] Cluster 5      
+##  [1] nation     time       own        people     citizens   country   
+##  [7] government &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;      
+## [13] &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;      
+## [19] &lt;NA&gt;       &lt;NA&gt;      
+## [1] &quot;Cluster Membership&quot;
+## 
+##  1  2  3  4  5 
+## 16  2 20  1 19 
+## [1] &quot;Within cluster sum of squares by cluster&quot;
+## [1]  733.8125  159.5000 2250.2000    0.0000 1147.1579</code></pre>
+<p>Membership of speeches in clusters is here:</p>
+<pre class="r"><code>inaug_km$cluster</code></pre>
+<pre><code>## 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 
+##  1  1  3  1  1  1  1  3  3  3  1  3  3  4  2  1  5  3  3  1  1  1  3  3  3 
+## 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 
+##  3  3  3  3  1  3  1  5  5  3  2  5  3  5  1  5  5  5  1  5  5  5  5  3  3 
+## 63 64 65 66 67 68 69 70 
+##  5  5  5  1  5  5  5  5</code></pre>
+<p>It’s interesting to note that all of the speeches since Hoover (i.e. 49 through 70) have either been either in category 1 or 5, with the latest ones being in Cluster 1 (this includes Reagan, Bush, Clinton, Bush, Obama, and Trump). Nearly all speeches discuss the relationship between government and its people (as you would expect from an inauguration speech), but Cluster 5 seems to put more emphasis on people, and Cluster 1 on government. Hmmm…</p>
+<p>Of course, you can probably get something different with fewer clusters, and you can use the hierarchical clustering analysis above to justify a different number of clusters.</p>
+</div>
+<div id="sentiment-analysis" class="section level2">
+<h2>Sentiment analysis</h2>
+<p>We return to the bag-of-words <code>tidytext</code> paradigm to do a sentiment analysis. The sentiment analysis we do here is very simple (perhaps oversimplified), and <code>tidytext</code> supports more sophisticated analysis. But this is a start. We start by going back to the one-record-per-speech data frame, and scoring words based on sentiment. We don’t worry about stop words at this point, because they will likely be scored as 0 anyway. We use the Bing sentiment list, which basically scores words as positive or negative (or nothing). We assign a score that basically gives a +1 to positive and -1 to negative. Then we add up the score column, and divide by the number of words in the speech. (Which is why we did not eliminate stop words here.) This gives a sort of average positivity/negativity score per word in the speech. If the score is negative, there are more negative words in the speech than positive. If the score is positive, there are more positive words. The higher the absolute value of the score, the higher the imbalance in positive/negative words. Similarly, we just count the number of sentiment words (whether positive or negative) to get an idea of the emotional content of the speech. (Note: this is a preliminary analysis. This does not distinguish between, say, “good” and “not good”. So take any individual results with a grain of salt and dig deeper.)</p>
+<pre class="r"><code>sw_sent &lt;- speech_df %&gt;% 
+  mutate(id=factor(id)) %&gt;% 
+  unnest_tokens(word,text) %&gt;% 
+  inner_join(get_sentiments(&quot;bing&quot;)) %&gt;% 
+  mutate(score=(sentiment==&quot;positive&quot;)-(sentiment==&quot;negative&quot;),is_scored=ifelse(sentiment %in% c(&quot;positive&quot;,&quot;negative&quot;),1,0))</code></pre>
+<pre><code>## Joining, by = &quot;word&quot;</code></pre>
+<pre class="r"><code>sw_sent %&gt;% 
+  group_by(Speaker,id) %&gt;% 
+  summarize(speech_score=sum(score),speech_sent_words=sum(is_scored)) %&gt;% 
+  left_join(total_words,by=&quot;id&quot;) %&gt;% 
+  mutate(speech_score=speech_score/total,speech_sent_words=speech_sent_words/total) %&gt;% 
+  arrange(speech_score) %&gt;% 
+  print(n=nrow(.))</code></pre>
+<pre><code>## # A tibble: 58 x 5
+## # Groups:   Speaker [39]
+##                   Speaker     id speech_score speech_sent_words total
+##                    &lt;fctr&gt; &lt;fctr&gt;        &lt;dbl&gt;             &lt;dbl&gt; &lt;int&gt;
+##  1        Abraham Lincoln     32  0.001426534        0.07275321   701
+##  2        Abraham Lincoln     31  0.002199615        0.06983778  3637
+##  3          James Madison     19  0.010734930        0.09331131  1211
+##  4        John F. Kennedy     56  0.010989011        0.10036630  1365
+##  5  Franklin D. Roosevelt     50  0.011519473        0.08831596  1823
+##  6         Woodrow Wilson     44  0.011716462        0.08787346  1707
+##  7  Franklin D. Roosevelt     49  0.012227539        0.09409888  1881
+##  8 William Henry Harrison     26  0.013115916        0.06865178  8463
+##  9  Franklin D. Roosevelt     51  0.015613383        0.06022305  1345
+## 10         Andrew Jackson     24  0.016992353        0.07306712  1177
+## 11           Barack Obama     68  0.017827529        0.08499171  2412
+## 12       Martin Van Buren     25  0.018452076        0.08867248  3902
+## 13          Ronald Reagan     61  0.018457752        0.07752256  2438
+## 14       Thomas Jefferson     17  0.019852262        0.07710065  2166
+## 15      James A. Garfield     36  0.022742475        0.08160535  2990
+## 16       Grover Cleveland     39  0.023774146        0.11589896  2019
+## 17         Herbert Hoover     48  0.024694636        0.07833245  3766
+## 18  Lyndon Baines Johnson     57  0.024798928        0.08512064  1492
+## 19      Warren G. Harding     46  0.024865189        0.09197124  3338
+## 20        James Knox Polk     27  0.025348016        0.07936838  4813
+## 21         Woodrow Wilson     45  0.025506867        0.06213211  1529
+## 22           Barack Obama     69  0.025519849        0.07277883  2116
+## 23           Bill Clinton     64  0.025851198        0.06998739  1586
+## 24       Ulysses S. Grant     34  0.026119403        0.06641791  1340
+## 25   Dwight D. Eisenhower     55  0.027108434        0.09457831  1660
+## 26           James Monroe     21  0.028373548        0.07216265  4476
+## 27       William McKinley     41  0.029702970        0.07740774  2222
+## 28  Richard Milhaus Nixon     58  0.030131827        0.08568738  2124
+## 29     Theodore Roosevelt     42  0.030303030        0.08282828   990
+## 30    William Howard Taft     43  0.030514706        0.07389706  5440
+## 31      John Quincy Adams     22  0.030864198        0.07681756  2916
+## 32          Ronald Reagan     62  0.034214619        0.09253499  2572
+## 33      Benjamin Harrison     38  0.034569024        0.08642256  4397
+## 34           Bill Clinton     65  0.035006909        0.07830493  2171
+## 35         George W. Bush     67  0.035028791        0.10604607  2084
+## 36        Franklin Pierce     29  0.035618078        0.09428315  3341
+## 37        Calvin Coolidge     47  0.035749507        0.08407298  4056
+## 38      George Washington     14  0.037037037        0.05185185   135
+## 39      George Washington     13  0.037735849        0.08525507  1431
+## 40         James Buchanon     30  0.037755822        0.08927311  2834
+## 41       Ulysses S. Grant     33  0.038019452        0.07338638  1131
+## 42         George W. Bush     66  0.038268507        0.09974906  1594
+## 43           Donald Trump     70  0.038775510        0.07414966  1470
+## 44       William McKinley     40  0.040482776        0.08524013  3977
+## 45   Dwight D. Eisenhower     54  0.040683483        0.09438568  2458
+## 46       Grover Cleveland     37  0.040876777        0.09893365  1688
+## 47    Rutherford B. Hayes     35  0.042151746        0.08069049  2491
+## 48             John Adams     15  0.043084877        0.08444636  2321
+## 49  Richard Milhaus Nixon     59  0.043767313        0.08919668  1805
+## 50          James Madison     18  0.044180119        0.11554800  1177
+## 51       Thomas Jefferson     16  0.046242775        0.10520231  1730
+## 52         Andrew Jackson     23  0.046985816        0.09308511  1128
+## 53  Franklin D. Roosevelt     52  0.048214286        0.08392857   560
+## 54           Jimmy Carter     60  0.048979592        0.10775510  1225
+## 55        Harry S. Truman     53  0.049978080        0.09820254  2281
+## 56           James Monroe     20  0.051198579        0.09736608  3379
+## 57         Zachary Taylor     28  0.051329056        0.08615949  1091
+## 58      George H. W. Bush     63  0.052631579        0.08283003  2318</code></pre>
+<p>Grover Cleveland and James Madison had the speeches with the highest emotional content, followed by Jimmy Carter and George W. Bush. Wilson, Franklin D. Roosevelt, and George Washington had the lowest emotional content. Abraham Lincoln (in 1860) had the speech with the least positive content (all speeches were positive on balance). William Henry Harrison’s odd speech about the Romans had near the least emotional content, and was one of the least positive speeches.</p>
+</div>
+<div id="conclusion" class="section level2">
+<h2>Conclusion</h2>
+<p>This analysis of inauguration speeches comes at a time where the change of US presidential power has a different feel, even the inauguration speech. The preliminary analysis above shows that Trump’s speech was similar in topics to speeches for the last 40 or so years, and nothing notable in its emotional content.</p>
+<p>This first start revealed a few interesting patterns, but a more sophisticated analysis might reveal something further.</p>
+</div>
