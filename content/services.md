@@ -1,5 +1,5 @@
 ---
-title: Services
+title: Consulting services
 author: John
 date: '2017-11-04'
 slug: content/services
