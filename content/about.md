@@ -2,9 +2,8 @@
 title: About this blog
 author: 'John Johnson'
 date: 2017-08-31T00:00:00
-comments: no
+disable_comments: true
 weight: -1
-type: post
 ---
 
 # About me

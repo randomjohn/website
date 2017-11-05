@@ -5,7 +5,7 @@ date: '2017-08-12'
 categories:
   - Blog
 slug: content/blogroll
-comments: no
+disable_comments: true
 ---
 
 ## Greenville, SC
