@@ -1,0 +1,49 @@
+---
+title: Historical Tropical Storms
+author: John
+date: '2017-08-31'
+categories:
+  - National
+tags:
+  - leaflet
+  - maps
+slug: historical-tropical-storms
+draft: true
+---
+
+```{r setup, include=FALSE}
+data.world_key <- "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJwcm9kLXVzZXItY2xpZW50OmpvaG5kam9obnNvbiIsImlzcyI6ImFnZW50OmpvaG5kam9obnNvbjo6OGFjMWZlMTUtZGQzMi00ZTc0LTliODYtYWVlZTZkYzgxZTRjIiwiaWF0IjoxNDk2NTExOTE2LCJyb2xlIjpbInVzZXJfYXBpX3dyaXRlIiwidXNlcl9hcGlfcmVhZCJdLCJnZW5lcmFsLXB1cnBvc2UiOnRydWV9.OhkSrxHOoH4E7JbZNPmgAW7AGGULWef7EdJANk1rb8EqVhibt8ZsG1gkUQzZBg1hsbdM9GD9K9Z04B9yMePFOw"
+saved_cfg <- data.world::save_config(data.world_key)
+
+```
+
+```{r}
+library(data.world)
+set_config(saved_cfg)
+ts_url <- "dhs/historical-tropical-storm"
+ts_table <- dwapi::list_tables(ts_url)
+ts_df <- dwapi::download_table_as_data_frame(ts_url,ts_table[1])
+```
+
+```{r}
+library(tidyverse)
+library(leaflet)
+library(htmltools)
+
+year <- 1973
+
+pal <- colorFactor(palette = "viridis", 
+                    domain = ts_df %>% filter(year==year) %>% select(name) %>% as_vector())
+ 
+ts_df %>% 
+  filter(year==year) %>% 
+  arrange(name,month,day) %>% 
+  mutate(popup_label=paste0("Name: ",name," Date: ",date," Category: ",cat," Wind (kt):",wind_kts)) %>% 
+  leaflet() %>% 
+  addProviderTiles(provider = "CartoDB.Positron") %>%
+  addCircleMarkers(lng=~long,lat=~lat,color=~pal(name),radius=~sqrt(wind_kts),
+                   label=~popup_label)
+
+  
+```
+
