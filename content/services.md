@@ -3,7 +3,7 @@ title: Services
 author: John
 date: '2017-11-04'
 slug: content/services
-comments: no
+disable_comments: true
 ---
 
 # Exploratory data analysis
